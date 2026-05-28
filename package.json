@@ -1,0 +1,47 @@
+{
+  "name": "whatsapp-ai-bot",
+  "version": "1.0.0",
+  "description": "MVP WhatsApp AI Bot using Z-API webhooks and OpenAI GPT-4",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:properties": "jest tests/properties --run",
+    "test:unit": "jest tests/unit --run",
+    "test:integration": "jest tests/integration --run"
+  },
+  "keywords": [
+    "whatsapp",
+    "ai",
+    "bot",
+    "z-api",
+    "openai",
+    "gpt-4"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "fast-check": "^3.23.2",
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js",
+      "**/tests/**/*.property.test.js"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/public/**"
+    ],
+    "coverageDirectory": "coverage",
+    "verbose": true
+  }
+}

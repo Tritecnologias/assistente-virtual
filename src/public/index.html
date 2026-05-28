@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp AI Bot - Painel de Monitoramento</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #f5f5f5;
+      color: #333;
+      line-height: 1.6;
+      padding: 1rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      color: #1a1a1a;
+    }
+
+    header p {
+      font-size: 0.875rem;
+      color: #666;
+      margin-top: 0.25rem;
+    }
+
+    #error-banner {
+      display: none;
+      background-color: #fee2e2;
+      border: 1px solid #fca5a5;
+      color: #991b1b;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+      text-align: center;
+      font-size: 0.875rem;
+    }
+
+    #conversation-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .conversation-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.25rem;
+      border-radius: 0.75rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      transition: box-shadow 0.2s;
+    }
+
+    .conversation-card:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .conversation-card.mode-ai {
+      background-color: #d1fae5;
+      border-left: 4px solid #10b981;
+    }
+
+    .conversation-card.mode-human {
+      background-color: #fef3c7;
+      border-left: 4px solid #f59e0b;
+    }
+
+    .conversation-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .conversation-phone {
+      font-weight: 600;
+      font-size: 1rem;
+      color: #1a1a1a;
+      word-break: break-all;
+    }
+
+    .conversation-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 0.25rem;
+      font-size: 0.8rem;
+      color: #555;
+    }
+
+    .conversation-mode {
+      font-weight: 600;
+      padding: 0.125rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+    }
+
+    .mode-ai .conversation-mode {
+      background-color: #6ee7b7;
+      color: #065f46;
+    }
+
+    .mode-human .conversation-mode {
+      background-color: #fcd34d;
+      color: #78350f;
+    }
+
+    .conversation-actions {
+      margin-left: 1rem;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 0.5rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    .btn:hover {
+      opacity: 0.85;
+    }
+
+    .btn:active {
+      transform: scale(0.96);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-pause {
+      background-color: #f59e0b;
+      color: #fff;
+    }
+
+    .btn-resume {
+      background-color: #10b981;
+      color: #fff;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #888;
+      font-size: 1rem;
+    }
+
+    .refresh-indicator {
+      text-align: center;
+      font-size: 0.75rem;
+      color: #999;
+      margin-top: 1.5rem;
+    }
+
+    @media (max-width: 600px) {
+      .conversation-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+      }
+
+      .conversation-actions {
+        margin-left: 0;
+        width: 100%;
+      }
+
+      .btn {
+        width: 100%;
+        padding: 0.75rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Painel de Monitoramento</h1>
+    <p>WhatsApp AI Bot — Conversas ativas</p>
+  </header>
+
+  <div id="error-banner" role="alert" aria-live="assertive"></div>
+
+  <main id="conversation-list" aria-label="Lista de conversas">
+    <div class="empty-state">Carregando conversas...</div>
+  </main>
+
+  <div class="refresh-indicator" aria-live="polite">
+    Atualização automática a cada 10 segundos
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const listEl = document.getElementById('conversation-list');
+      const errorBanner = document.getElementById('error-banner');
+
+      let refreshInterval = null;
+
+      /**
+       * Fetches the conversation list from the API.
+       * @returns {Promise<Array>}
+       */
+      async function fetchConversations() {
+        const response = await fetch('/api/conversations');
+        if (!response.ok) {
+          throw new Error('Falha ao carregar conversas');
+        }
+        return response.json();
+      }
+
+      /**
+       * Formats an ISO timestamp to a human-readable string.
+       * @param {string} isoString
+       * @returns {string}
+       */
+      function formatTimestamp(isoString) {
+        if (!isoString) return '—';
+        try {
+          const date = new Date(isoString);
+          return date.toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+        } catch (e) {
+          return isoString;
+        }
+      }
+
+      /**
+       * Renders the conversation list in the DOM.
+       * @param {Array} conversations
+       */
+      function renderConversations(conversations) {
+        if (!conversations || conversations.length === 0) {
+          listEl.innerHTML = '<div class="empty-state">Nenhuma conversa ativa no momento.</div>';
+          return;
+        }
+
+        listEl.innerHTML = conversations.map(function (conv) {
+          var modeClass = conv.controlMode === 'AI' ? 'mode-ai' : 'mode-human';
+          var modeLabel = conv.controlMode === 'AI' ? 'IA' : 'Humano';
+          var buttonLabel = conv.controlMode === 'AI' ? 'Pausar IA' : 'Retomar IA';
+          var buttonClass = conv.controlMode === 'AI' ? 'btn-pause' : 'btn-resume';
+          var action = conv.controlMode === 'AI' ? 'pause' : 'resume';
+          var ariaLabel = conv.controlMode === 'AI'
+            ? 'Pausar IA para ' + conv.phoneNumber
+            : 'Retomar IA para ' + conv.phoneNumber;
+
+          return '<article class="conversation-card ' + modeClass + '" data-phone="' + conv.phoneNumber + '" aria-label="Conversa com ' + conv.phoneNumber + '">'
+            + '<div class="conversation-info">'
+            + '<div class="conversation-phone">' + escapeHtml(conv.phoneNumber) + '</div>'
+            + '<div class="conversation-meta">'
+            + '<span class="conversation-mode">' + modeLabel + '</span>'
+            + '<span>Última msg: ' + formatTimestamp(conv.lastMessageAt) + '</span>'
+            + '<span>' + (conv.messageCount || 0) + ' mensagens</span>'
+            + '</div>'
+            + '</div>'
+            + '<div class="conversation-actions">'
+            + '<button class="btn ' + buttonClass + '" data-action="' + action + '" data-phone="' + conv.phoneNumber + '" aria-label="' + ariaLabel + '">'
+            + buttonLabel
+            + '</button>'
+            + '</div>'
+            + '</article>';
+        }).join('');
+      }
+
+      /**
+       * Escapes HTML special characters to prevent XSS.
+       * @param {string} str
+       * @returns {string}
+       */
+      function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
+      }
+
+      /**
+       * Shows an error message in the banner.
+       * @param {string} message
+       */
+      function showError(message) {
+        errorBanner.textContent = message;
+        errorBanner.style.display = 'block';
+        setTimeout(function () {
+          errorBanner.style.display = 'none';
+        }, 5000);
+      }
+
+      /**
+       * Hides the error banner.
+       */
+      function hideError() {
+        errorBanner.style.display = 'none';
+      }
+
+      /**
+       * Loads and renders conversations.
+       */
+      async function loadConversations() {
+        try {
+          var conversations = await fetchConversations();
+          renderConversations(conversations);
+        } catch (err) {
+          console.error('[Dashboard] Erro ao carregar conversas:', err);
+        }
+      }
+
+      /**
+       * Handles pause/resume button clicks.
+       * @param {Event} event
+       */
+      async function handleAction(event) {
+        var button = event.target.closest('button[data-action]');
+        if (!button) return;
+
+        var action = button.getAttribute('data-action');
+        var phone = button.getAttribute('data-phone');
+
+        if (!action || !phone) return;
+
+        // Disable button to prevent double-clicks
+        button.disabled = true;
+        var originalText = button.textContent;
+        button.textContent = 'Aguarde...';
+
+        try {
+          var url = '/api/conversations/' + encodeURIComponent(phone) + '/' + action;
+          var response = await fetch(url, { method: 'POST' });
+
+          if (!response.ok) {
+            var errorData = {};
+            try {
+              errorData = await response.json();
+            } catch (e) {
+              // ignore parse error
+            }
+            throw new Error(errorData.error || 'Falha ao alterar modo');
+          }
+
+          // Success — immediately reload conversations to reflect the change
+          hideError();
+          await loadConversations();
+        } catch (err) {
+          // Show error and retain current mode display
+          showError('Erro: ' + err.message);
+          button.disabled = false;
+          button.textContent = originalText;
+        }
+      }
+
+      // Event delegation for action buttons
+      listEl.addEventListener('click', handleAction);
+
+      // Initial load
+      loadConversations();
+
+      // Auto-refresh every 10 seconds
+      refreshInterval = setInterval(loadConversations, 10000);
+    })();
+  </script>
+</body>
+</html>
