@@ -51,6 +51,18 @@ class WebhookController {
     // DEBUG: Log raw payload
     console.log('[WebhookController] Raw payload:', JSON.stringify(payload));
 
+    // 0. If message is from the owner (fromMe: true), auto-pause AI for that conversation
+    if (payload.fromMe === true && payload.phone && !payload.isGroup) {
+      const phoneNumber = payload.phone.replace(/^\+/, '');
+      const currentMode = this.stateRepository.getControlMode(phoneNumber);
+      if (currentMode === 'AI') {
+        this.stateRepository.getOrCreateConversation(phoneNumber);
+        this.stateRepository.setControlMode(phoneNumber, 'Human');
+        console.log(`[WebhookController] Owner replied to ${phoneNumber} — auto-paused AI`);
+      }
+      return res.status(200).json({ status: 'received', action: 'owner-reply', paused: currentMode === 'AI' });
+    }
+
     // 1. Validate signature (skip if no webhook secret configured)
     if (this.webhookSecret && !this.validateSignature(payload, signature)) {
       console.error('[WebhookController] Invalid or missing webhook signature');
