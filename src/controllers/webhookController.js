@@ -127,6 +127,12 @@ class WebhookController {
       return res.status(200).json({ status: 'received', mode: 'human' });
     }
 
+    // 7.5. Check business hours — AI only responds outside business hours (20h-9h)
+    if (!this._isAIActiveTime()) {
+      // During business hours (9h-20h), don't respond — humans handle it
+      return res.status(200).json({ status: 'received', mode: 'business-hours' });
+    }
+
     // 8. AI mode: respond immediately, then process AI asynchronously
     res.status(200).json({ status: 'received', mode: 'ai' });
 
@@ -252,6 +258,24 @@ class WebhookController {
     }
 
     return false;
+  }
+
+  /**
+   * Checks if the current time is within AI active hours.
+   * AI responds only outside business hours: 20:00 to 09:00 (Brasília time).
+   * 
+   * @returns {boolean} True if AI should respond
+   * @private
+   */
+  _isAIActiveTime() {
+    // Get current hour in Brasília timezone (America/Sao_Paulo)
+    const now = new Date();
+    const brasiliaHour = parseInt(
+      now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo', hour: 'numeric', hour12: false })
+    );
+
+    // AI active from 20:00 to 08:59 (outside business hours)
+    return brasiliaHour >= 20 || brasiliaHour < 9;
   }
 }
 
