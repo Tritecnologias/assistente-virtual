@@ -34,6 +34,8 @@ class WebhookController {
     this.aiEngine = aiEngine;
     this.handoffController = handoffController;
     this.messageDispatcher = messageDispatcher;
+    this.aiStartHour = config.aiHours ? config.aiHours.startHour : 20;
+    this.aiEndHour = config.aiHours ? config.aiHours.endHour : 9;
   }
 
   /**
@@ -274,8 +276,14 @@ class WebhookController {
       now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo', hour: 'numeric', hour12: false })
     );
 
-    // AI active from 20:00 to 08:59 (outside business hours)
-    return brasiliaHour >= 20 || brasiliaHour < 9;
+    // AI active outside business hours (e.g., 20:00 to 08:59)
+    if (this.aiStartHour > this.aiEndHour) {
+      // Overnight range (e.g., 20-9): active if hour >= start OR hour < end
+      return brasiliaHour >= this.aiStartHour || brasiliaHour < this.aiEndHour;
+    } else {
+      // Same-day range (e.g., 9-20): active if hour >= start AND hour < end
+      return brasiliaHour >= this.aiStartHour && brasiliaHour < this.aiEndHour;
+    }
   }
 }
 

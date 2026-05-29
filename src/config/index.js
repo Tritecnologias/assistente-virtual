@@ -154,6 +154,25 @@ function loadConfig() {
     }
   }
 
+  // AI active hours (when AI responds)
+  let aiStartHour = 20;
+  const aiStartEnv = process.env.AI_START_HOUR;
+  if (aiStartEnv !== undefined && aiStartEnv.trim().length > 0) {
+    const parsed = parseInt(aiStartEnv.trim(), 10);
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 23) {
+      aiStartHour = parsed;
+    }
+  }
+
+  let aiEndHour = 9;
+  const aiEndEnv = process.env.AI_END_HOUR;
+  if (aiEndEnv !== undefined && aiEndEnv.trim().length > 0) {
+    const parsed = parseInt(aiEndEnv.trim(), 10);
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 23) {
+      aiEndHour = parsed;
+    }
+  }
+
   // --- Load system prompt ---
   const systemPrompt = loadSystemPrompt(errors);
 
@@ -186,7 +205,11 @@ function loadConfig() {
       retentionHours,
       maxMessagesPerConversation: 500
     },
-    systemPrompt
+    systemPrompt,
+    aiHours: {
+      startHour: aiStartHour,
+      endHour: aiEndHour
+    }
   };
 
   return config;
